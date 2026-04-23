@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Inferno Admin | Finance Control</title>
+    <title>Inferno Admin | Official</title>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
@@ -11,25 +11,31 @@
     <style>
         :root { --red: #ff0000; --bg: #050505; --card: #111; --gold: #ffd700; }
         body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
-        .header { background: linear-gradient(to right, #400, #000); padding: 15px; border-bottom: 2px solid var(--red); text-align: center; font-weight: bold; flex-shrink: 0; }
+        
+        #auth-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 5000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .header { background: linear-gradient(to right, #400, #000); padding: 15px; border-bottom: 2px solid var(--red); text-align: center; font-weight: bold; flex-shrink: 0; text-transform: uppercase; letter-spacing: 1px; }
         .section { display: none; padding: 15px; flex-grow: 1; overflow-y: auto; padding-bottom: 90px; }
         .section.active { display: block; animation: fadeIn 0.3s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
         .admin-panel { background: #1a0000; border: 1px solid var(--red); padding: 15px; border-radius: 12px; margin-bottom: 15px; }
-        .input-box { width: 100%; padding: 12px; margin: 6px 0; background: #000; border: 1px solid #333; color: white; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
-        .btn-red { background: var(--red); border: none; color: white; padding: 10px; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer; }
+        .input-box { width: 100%; padding: 12px; margin: 6px 0; background: #000; border: 1px solid #333; color: white; border-radius: 8px; box-sizing: border-box; font-size: 14px; outline: none; }
+        .btn-red { background: var(--red); border: none; color: white; padding: 10px; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer; transition: 0.2s; }
+        
         .card { background: var(--card); padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid var(--red); }
-        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #000; display: flex; justify-content: space-around; padding: 12px 0; border-top: 1px solid #222; }
-        .nav-item { background: none; border: none; color: #555; font-size: 10px; font-weight: bold; }
+        .action-btn { font-size: 9px; padding: 4px 8px; margin-top: 5px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; text-transform: uppercase; margin-right: 5px; }
+
+        .nav-bar { position: fixed; bottom: 0; width: 100%; background: #000; display: flex; justify-content: space-around; padding: 12px 0; border-top: 1px solid #222; z-index: 1000; }
+        .nav-item { background: none; border: none; color: #555; font-size: 10px; font-weight: bold; text-transform: uppercase; }
         .nav-item.active { color: var(--red); }
-        .popup { display: none; position: fixed; top: 10%; left: 5%; width: 90%; background: #111; border: 2px solid var(--gold); border-radius: 15px; padding: 20px; z-index: 4000; box-sizing: border-box; }
-        .action-btn { font-size: 10px; padding: 5px 10px; margin-top: 5px; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; }
+        
+        .popup { display: none; position: fixed; top: 15%; left: 5%; width: 90%; background: #111; border: 2px solid var(--gold); border-radius: 15px; padding: 20px; z-index: 4000; box-shadow: 0 0 30px #000; box-sizing: border-box; }
     </style>
 </head>
 <body>
 
 <div id="trans-popup" class="popup">
-    <h3 style="color:var(--gold); margin:0 0 10px 0;">Transaction Request</h3>
+    <h3 style="color:var(--gold); margin:0 0 10px 0;">Finance Change Request</h3>
     <p id="trans-msg" style="font-size:12px; color:#ccc;"></p>
     <div style="display:flex; gap:10px; margin-top:10px;">
         <button class="btn-red" style="background:green;" onclick="approveTransAction(true)">APPROVE</button>
@@ -37,36 +43,85 @@
     </div>
 </div>
 
-<div id="auth-screen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:5000; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-    <h2 style="color:var(--red);">INFERNO CORE</h2>
-    <div style="width:85%;">
-        <input type="email" id="login-email" placeholder="Email" class="input-box">
-        <input type="password" id="login-pass" placeholder="Password" class="input-box">
-        <button class="btn-red" onclick="handleLogin()">LOGIN</button>
+<div id="approval-popup" class="popup">
+    <h3 style="color:var(--gold); margin:0 0 10px 0;">Vault Access Request</h3>
+    <p id="request-msg" style="font-size:13px; color:#ccc;"></p>
+    <input type="number" id="access-time" placeholder="Minutes" class="input-box" value="5">
+    <div style="display:flex; gap:10px; margin-top:10px;">
+        <button class="btn-red" style="background:green;" onclick="approveAccess(true)">GRANT</button>
+        <button class="btn-red" onclick="approveAccess(false)">DENY</button>
     </div>
 </div>
 
-<div class="header">INFERNO FINANCE</div>
+<div id="auth-screen">
+    <h1 style="color: var(--red); margin-bottom: 5px; font-style: italic;">INFERNO</h1>
+    <div style="width: 85%;">
+        <input type="email" id="login-email" placeholder="Email" class="input-box">
+        <input type="password" id="login-pass" placeholder="Password" class="input-box">
+        <button class="btn-red" onclick="handleLogin()">ACCESS CORE</button>
+        <p id="login-err" style="color:yellow; font-size:11px; text-align:center; margin-top:15px;"></p>
+    </div>
+</div>
+
+<div class="header">INFERNO CORE</div>
 
 <div id="finance" class="section active">
     <div class="admin-panel">
+        <h4 style="margin:0 0 10px 0; color:var(--red);">ADD TRANSACTION</h4>
         <input type="number" id="t-amt" placeholder="Amount (₹)" class="input-box">
         <select id="t-type" class="input-box">
-            <option value="Salary">Salary</option>
-            <option value="Received">Received</option>
+            <option value="Salary">Salary Payment</option>
+            <option value="Received">Payment Received</option>
+            <option value="Expense">Expense</option>
         </select>
-        <button class="btn-red" onclick="saveTransaction()">ADD TRANSACTION</button>
+        <button class="btn-red" onclick="saveTransaction()">ADD ENTRY</button>
     </div>
     <div id="ledger-list"></div>
 </div>
 
-<div id="chat" class="section"><h3>Team Chat</h3><div id="chat-flow"></div></div>
-<div id="vault" class="section"><h3>Vault</h3><div id="vault-content"></div></div>
+<div id="chat" class="section">
+    <div id="chat-flow" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 15px;"></div>
+    <div style="position: sticky; bottom: 0; background: var(--bg); padding-top: 10px;">
+        <div style="display:flex; gap:8px;">
+            <input type="text" id="chat-in" class="input-box" placeholder="Message...">
+            <button class="btn-red" style="width:70px;" onclick="sendChat()">SEND</button>
+        </div>
+    </div>
+</div>
+
+<div id="vault" class="section">
+    <div id="vault-locked" class="admin-panel" style="text-align:center; padding:40px 20px;">
+        <h3 style="color:var(--red);">VAULT SECURED</h3>
+        <button class="btn-red" style="margin-top:20px;" onclick="sendVaultRequest()">REQUEST ENTRY</button>
+    </div>
+    <div id="vault-content" style="display:none;">
+        <div class="admin-panel">
+            <h3 style="color:var(--gold); margin-top:0;">INTERNAL DATA</h3>
+            <p id="timer" style="color:var(--red); font-weight:bold; font-size:12px;"></p>
+            <div id="vault-text" style="background:#000; padding:15px; border-radius:8px; font-size:13px; white-space: pre-wrap;"></div>
+        </div>
+        <div id="vault-editor-ui" class="admin-panel" style="border-color:var(--gold); display:none;">
+            <textarea id="vault-edit-box" class="input-box" style="height:100px;"></textarea>
+            <button id="vault-save-btn" class="btn-red" style="background:var(--gold); color:black;" onclick="requestVaultChange()">UPDATE VAULT</button>
+        </div>
+    </div>
+</div>
+
+<div id="manage" class="section">
+    <div class="admin-panel" style="border-color: var(--gold);">
+        <h3 style="color: var(--gold); margin-top: 0;">STAFF GENERATOR</h3>
+        <input type="email" id="new-email" placeholder="Email" class="input-box">
+        <input type="password" id="new-pass" placeholder="Password" class="input-box">
+        <select id="new-role" class="input-box"><option value="MANAGER">MANAGER</option><option value="EDITOR">EDITOR</option><option value="ADMIN">ADMIN</option></select>
+        <button class="btn-red" style="background: var(--gold); color: black;" onclick="generateAccount()">CREATE USER</button>
+    </div>
+</div>
 
 <nav class="nav-bar">
     <button class="nav-item active" onclick="tab('finance', this)">Ledger</button>
     <button class="nav-item" onclick="tab('chat', this)">Chat</button>
     <button class="nav-item" onclick="tab('vault', this)">Vault</button>
+    <button id="nav-manage" class="nav-item" style="display:none;" onclick="tab('manage', this)">Staff</button>
 </nav>
 
 <script>
@@ -86,7 +141,7 @@
     let userEmail = "";
     let userRole = "USER";
     let pendingTransId = "";
-    let pendingAction = "";
+    let activeReqId = "";
 
     function handleLogin() {
         const email = document.getElementById('login-email').value;
@@ -95,50 +150,66 @@
             return auth.signInWithEmailAndPassword(email, pass);
         }).then((u) => {
             userEmail = u.user.email;
-            if(userEmail === "headadmin@ir.com") userRole = "HEAD ADMIN";
+            if(userEmail === "headadmin@ir.com") {
+                userRole = "HEAD ADMIN";
+                document.getElementById('nav-manage').style.display = "block";
+                document.getElementById('vault-editor-ui').style.display = "block";
+            } else {
+                db.collection("Users").doc(u.user.uid).get().then(doc => {
+                    if(doc.exists) userRole = doc.data().role;
+                });
+            }
             document.getElementById('auth-screen').style.display = "none";
             initListeners();
-        });
+        }).catch(() => document.getElementById('login-err').innerText = "ACCESS DENIED");
     }
 
     function initListeners() {
-        // HEAD ADMIN: Monitor for Delete/Change Requests
         if(userRole === "HEAD ADMIN") {
-            db.collection("trans_requests").where("status", "==", "pending")
-                .onSnapshot(snap => {
-                    snap.forEach(doc => {
-                        pendingTransId = doc.data().targetId;
-                        pendingAction = doc.data().action;
-                        const reqId = doc.id;
-                        document.getElementById('trans-msg').innerText = `${doc.data().by} wants to ${pendingAction} transaction ₹${doc.data().amt}`;
-                        document.getElementById('trans-popup').style.display = "block";
-                        window.currentReqDoc = reqId;
-                    });
+            // Vault Access Requests
+            db.collection("vault_requests").where("status", "==", "pending").onSnapshot(snap => {
+                snap.forEach(doc => {
+                    activeReqId = doc.id;
+                    document.getElementById('request-msg').innerText = `${doc.data().user} wants Vault access.`;
+                    document.getElementById('approval-popup').style.display = "block";
                 });
+            });
+
+            // Transaction Delete Requests
+            db.collection("trans_requests").where("status", "==", "pending").onSnapshot(snap => {
+                snap.forEach(doc => {
+                    pendingTransId = doc.data().targetId;
+                    window.currentReqDoc = doc.id;
+                    document.getElementById('trans-msg').innerText = `${doc.data().by} wants to delete transaction ₹${doc.data().amt}`;
+                    document.getElementById('trans-popup').style.display = "block";
+                });
+            });
         }
 
-        // Ledger Display
+        // Sync Ledger
         db.collection("transactions").orderBy("time", "desc").onSnapshot(snap => {
             const list = document.getElementById('ledger-list');
             list.innerHTML = "";
             snap.forEach(doc => {
                 const d = doc.data();
                 const id = doc.id;
-                let controls = "";
+                let btns = (userRole === "HEAD ADMIN") ? 
+                    `<button class="action-btn" style="background:#444; color:white;" onclick="deleteTrans('${id}', true)">DELETE</button>` :
+                    `<button class="action-btn" style="background:#222; color:#888;" onclick="reqTransDel('${id}', '${d.amount}')">REQ DEL</button>`;
                 
-                if(userRole === "HEAD ADMIN") {
-                    controls = `<button class="action-btn" style="background:#444; color:white;" onclick="deleteTrans('${id}', true)">DELETE</button>`;
-                } else {
-                    controls = `<button class="action-btn" style="background:#222; color:#888;" onclick="requestTransAction('${id}', '${d.amount}', 'DELETE')">REQ DELETE</button>`;
-                }
-
-                list.innerHTML += `<div class="card">
-                    <div style="display:flex; justify-content:space-between;">
-                        <div><b>₹${d.amount}</b><br><small>${d.type}</small></div>
-                        <div style="text-align:right"><small>${d.admin}</small><br>${controls}</div>
-                    </div>
-                </div>`;
+                list.innerHTML += `<div class="card"><div style="display:flex; justify-content:space-between;">
+                    <div><b>₹${d.amount}</b><br><small>${d.type}</small></div>
+                    <div style="text-align:right"><small>${d.admin}</small><br>${btns}</div>
+                </div></div>`;
             });
+        });
+
+        // Sync Vault & Chat (Existing Logic)
+        db.collection("vault_items").doc("main").onSnapshot(doc => {
+            if(doc.exists) {
+                document.getElementById('vault-text').innerText = doc.data().content;
+                document.getElementById('vault-edit-box').value = doc.data().content;
+            }
         });
     }
 
@@ -146,37 +217,27 @@
         const amt = document.getElementById('t-amt').value;
         const type = document.getElementById('t-type').value;
         if(!amt) return;
-        db.collection("transactions").add({
-            amount: amt, type, admin: userEmail.split('@')[0],
-            role: userRole, time: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        db.collection("transactions").add({ amount: amt, type, admin: userEmail.split('@')[0], role: userRole, time: firebase.firestore.FieldValue.serverTimestamp() });
         document.getElementById('t-amt').value = "";
     }
 
-    // HEAD ADMIN Direct Delete
-    function deleteTrans(id, isDirect) {
-        if(isDirect && confirm("Delete this record permanently?")) {
-            db.collection("transactions").doc(id).delete();
-        }
-    }
-
-    // STAFF Request Delete
-    function requestTransAction(id, amt, action) {
-        db.collection("trans_requests").add({
-            targetId: id, amt: amt, action: action, by: userEmail,
-            status: "pending", time: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        alert("Request sent to HEAD ADMIN.");
+    function deleteTrans(id, direct) { if(direct && confirm("Delete record?")) db.collection("transactions").doc(id).delete(); }
+    
+    function reqTransDel(id, amt) {
+        db.collection("trans_requests").add({ targetId: id, amt: amt, by: userEmail, status: "pending", time: firebase.firestore.FieldValue.serverTimestamp() });
+        alert("Delete request sent.");
     }
 
     function approveTransAction(granted) {
-        if(granted && pendingAction === "DELETE") {
-            db.collection("transactions").doc(pendingTransId).delete();
-        }
+        if(granted) db.collection("transactions").doc(pendingTransId).delete();
         db.collection("trans_requests").doc(window.currentReqDoc).update({ status: granted ? "approved" : "rejected" });
         document.getElementById('trans-popup').style.display = "none";
     }
 
+    // Vault/Chat Utility Functions
+    function sendVaultRequest() { db.collection("vault_requests").add({ user: userEmail, status: "pending", time: firebase.firestore.FieldValue.serverTimestamp() }); alert("Sent."); }
+    function approveAccess(g) { db.collection("vault_requests").doc(activeReqId).update({ status: g ? "approved" : "denied", minutes: document.getElementById('access-time').value }); document.getElementById('approval-popup').style.display = "none"; }
+    
     function tab(id, btn) {
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
         document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
